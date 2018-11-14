@@ -1,17 +1,18 @@
 ---
 title: 'Psych 251 PS4: Simulation'
-author: "Mike Frank"
+author: "Andrew Nam"
 date: "2018"
 output: 
   html_document:
     toc: true
 ---
 
-This is problem set #3, in which we want you to integrate your knowledge of data wrangling with some basic simulation skills and some linear modeling.
+This is problem set #4, in which we want you to integrate your knowledge of data wrangling with some basic simulation skills and some linear modeling.
 
 For ease of reading, please separate your answers from our text by marking our text with the `>` character (indicating quotes). 
 
-```{r}
+```{r, include=FALSE}
+library(ggplot2)
 library(tidyverse)
 ```
 
@@ -20,11 +21,23 @@ Let's start by convincing ourselves that t-tests have the appropriate false posi
 First do this using a `for` loop.
 
 ```{r}
+n_trials = 10000
+n_samples = 30
+
+sig_trials = 0
+for (i in 1:n_trials) {
+  if (t.test(rnorm(n_samples))$p.value <= .05) {
+    sig_trials = sig_trials + 1
+  }
+}
+sig_trials / n_trials
 ```
 
 Next, do this using the `replicate` function:
 
 ```{r}
+pvals = replicate(n_trials,t.test(rnorm(n_samples))$p.value)
+length(pvals[pvals <= .05]) / n_trials
 ```
 
 Ok, that was a bit boring. Let's try something more interesting - let's implement a p-value sniffing simulation, in the style of Simons, Nelson, & Simonsohn (2011).
@@ -34,18 +47,36 @@ Consider this scenario: you have done an experiment, again with 30 participants 
 First, write a function that implements this sampling regime.
 
 ```{r}
-double.sample <- function () {
+double.sample <- function (p_redo_max=.25) {
+  n_samples = 30
+  p_redo_min = .05
+  
+  trials = rnorm(n_samples)
+  p = t.test(trials)$p.value
+  
+  if (p > p_redo_min & p < p_redo_max) {
+    trials = c(trials, rnorm(n_samples))
+    p = t.test(trials)$p.value
+  }
+  
+  return(p)
 }
 ```
 
 Now call this function 10k times and find out what happens. 
 
 ```{r}
+pvals = replicate(n_trials, double.sample())
+all_positives = length(pvals[pvals <= .05]) / n_trials
+false_pos_ratio = 1 - (.05/all_positives)
+
+all_positives
+false_pos_ratio
 ```
 
 Is there an inflation of false positives? How bad is it?
 
-> ANSWER
+> Yes. `r round(false_pos_ratio, 4)*100`% of the positives are false positives.
 
 Now modify this code so that you can investigate this "double the sample" rule in a bit more depth. Let's see what happens when you double the sample ANY time p > .05 (not just when p < .25), or when you do it only if p < .5 or < .75. How do these choices affect the false positive rate?
 
@@ -54,8 +85,57 @@ HINT: Try to do this by making the function `double.sample` take the upper p val
 HINT 2: You may need more samples. Find out by looking at how the results change from run to run.
 
 ```{r}
+n_trials = 100000
+p_redo_max = 1
+pvals = replicate(n_trials, double.sample(p_redo_max))
+all_positives = length(pvals[pvals <= .05]) / n_trials
+false_pos_ratio = 1 - (.05/all_positives)
+
+all_positives
+false_pos_ratio
+```
+
+```{r}
+n_trials = 100000
+p_redo_max = .75
+pvals = replicate(n_trials, double.sample(p_redo_max))
+all_positives = length(pvals[pvals <= .05]) / n_trials
+false_pos_ratio = 1 - (.05/all_positives)
+
+all_positives
+false_pos_ratio
+```
+
+```{r}
+n_trials = 100000
+p_redo_max = .5
+pvals = replicate(n_trials, double.sample(p_redo_max))
+all_positives = length(pvals[pvals <= .05]) / n_trials
+false_pos_ratio = 1 - (.05/all_positives)
+
+all_positives
+false_pos_ratio
 ```
 
 What do you conclude on the basis of this simulation? How bad is this kind of data-dependent policy?
 
-> ANSWER
+> Sampling based on data inflates the number of false-positives. Changing the sample-size when the p-value is close to .05 such as .05 < p < .06, the study has a 5.4% chance to yield a false positive.
+
+```{r, include=FALSE}
+# Just to see.
+# p_redo_maxes = .05 + .2 * c(1:100)/100
+# false_pos_ratios = c()
+# n_trials = 50000
+# 
+# for (p_redo_max in p_redo_maxes) {
+#   pvals = replicate(n_trials, double.sample(p_redo_max))
+#   all_positives = length(pvals[pvals <= .05]) / n_trials
+#   false_pos_ratio = 1 - (.05/all_positives)
+#   false_pos_ratios = c(false_pos_ratios, false_pos_ratio)
+# }
+# 
+# ggplot(
+#     data.frame(p_redo_maxes=p_redo_maxes, false_pos_ratios=false_pos_ratios),
+#     aes(x=p_redo_maxes, y=false_pos_ratios)) +
+#     geom_line(color="tomato")
+```
