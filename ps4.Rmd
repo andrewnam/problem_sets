@@ -11,12 +11,15 @@ This is problem set #4, in which we want you to integrate your knowledge of data
 
 For ease of reading, please separate your answers from our text by marking our text with the `>` character (indicating quotes). 
 
-```{r, include=FALSE}
-library(ggplot2)
+```{r, warning=F, message=F}
 library(tidyverse)
 ```
 
-Let's start by convincing ourselves that t-tests have the appropriate false positive rate. Run 10,000 t-tests with standard, normally-distributed data from a made up 30-person, single-measurement experiment (the command for sampling from a normal distribution is `rnorm`). What's the proportion of "significant" results ($p < .05$) that you see?
+Let's start by convincing ourselves that t-tests have the appropriate false positive rate. Run 10,000 t-tests with standard, normally-distributed data from a made up 30-person, single-measurement experiment (the command for sampling from a normal distribution is `rnorm`).
+
+The goal of these t-tests are to determine, based on 30 observations, whether the underlying distribution (in this case a normal distribution with mean 0 and standard deviation 1) has a mean that is different from 0. In reality, the mean is not different from 0 (we sampled it using `rnorm`), but sometimes the 30 observations we get in our experiment will suggest that the mean is higher or lower. In this case, we'll get a "significant" result and incorrectly reject the null hypothesis of mean 0.
+
+What's the proportion of "significant" results ($p < .05$) that you see?
 
 First do this using a `for` loop.
 
@@ -40,9 +43,13 @@ pvals = replicate(n_trials,t.test(rnorm(n_samples))$p.value)
 length(pvals[pvals <= .05]) / n_trials
 ```
 
+How does this compare to the intended false-positive rate of $\alpha=0.05$?
+
+> ANSWER
+
 Ok, that was a bit boring. Let's try something more interesting - let's implement a p-value sniffing simulation, in the style of Simons, Nelson, & Simonsohn (2011).
 
-Consider this scenario: you have done an experiment, again with 30 participants (one observation each, just for simplicity). The question is whether their performance is above chance. You aren't going to check the p-value every trial, but let's say you run 30 - then if the p-value is within the range p < .25 and p > .05, you optionally run 30 more and add those data, then test again. But if the original p value is < .05, you call it a day, and if the original is > .25, you also stop.  
+Consider this scenario: you have done an experiment, again with 30 participants (one observation each, just for simplicity). The question is whether the true mean is different from 0. You aren't going to check the p-value every trial, but let's say you run 30 - then if the p-value is within the range p < .25 and p > .05, you optionally run 30 more and add those data, then test again. But if the original p value is < .05, you call it a day, and if the original is > .25, you also stop.  
 
 First, write a function that implements this sampling regime.
 
@@ -78,7 +85,13 @@ Is there an inflation of false positives? How bad is it?
 
 > Yes. `r round(false_pos_ratio, 4)*100`% of the positives are false positives.
 
-Now modify this code so that you can investigate this "double the sample" rule in a bit more depth. Let's see what happens when you double the sample ANY time p > .05 (not just when p < .25), or when you do it only if p < .5 or < .75. How do these choices affect the false positive rate?
+Now modify this code so that you can investigate this "double the sample" rule in a bit more depth. In the previous question, the researcher doubles the sample only when they think they got "close" to a significant result, i.e. when their not-significant p is less than 0.25. What if the researcher was more optimistic? See what happens in these 3 other scenarios:
+
+* The researcher doubles the sample whenever their pvalue is not significant, but it's less than 0.5.
+* The researcher doubles the sample whenever their pvalue is not significant, but it's less than 0.75.
+* The research doubles their sample whenever they get ANY pvalue that is not significant.
+
+How do these choices affect the false positive rate?
 
 HINT: Try to do this by making the function `double.sample` take the upper p value as an argument, so that you can pass this through dplyr.
 
